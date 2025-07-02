@@ -14,7 +14,6 @@ import (
 	"runtime"
 	"strconv"
 	"strings"
-	"time"
 
 	"github.com/fleetdm/fleet/v4/orbit/pkg/constant"
 	"github.com/fleetdm/fleet/v4/orbit/pkg/packaging/wix"
@@ -313,15 +312,17 @@ func writePowershellInstallerUtilsFile(opt Options, rootPath string) error {
 
 // writeManifestXML creates the manifest.xml file used when generating the 'resource_windows.syso' metadata
 // (see writeResourceSyso). Returns the path of the newly created file.
-func writeManifestXML(vParts []string, orbitPath string, arch string) (string, error) {
+func writeManifestXML(opt Options, vParts []string, orbitPath string, arch string) (string, error) {
 	filePath := filepath.Join(orbitPath, "manifest.xml")
 
 	tmplOpts := struct {
-		Version string
-		Arch    string
+		Version     string
+		Arch        string
+		ProductName string
 	}{
-		Version: strings.Join(vParts, "."),
-		Arch:    arch,
+		Version:     strings.Join(vParts, "."),
+		Arch:        arch,
+		ProductName: opt.ProductName,
 	}
 
 	var contents bytes.Buffer
@@ -338,7 +339,7 @@ func writeManifestXML(vParts []string, orbitPath string, arch string) (string, e
 
 // createVersionInfo returns a VersionInfo struct pointer to be used to generate the 'resource_windows.syso'
 // metadata file (see writeResourceSyso).
-func createVersionInfo(vParts []string, manifestPath string) (*goversioninfo.VersionInfo, error) {
+func createVersionInfo(opt Options, vParts []string, manifestPath string) (*goversioninfo.VersionInfo, error) {
 	vIntParts := make([]int, 0, len(vParts))
 	for _, p := range vParts {
 		v, err := strconv.Atoi(p)
@@ -348,7 +349,6 @@ func createVersionInfo(vParts []string, manifestPath string) (*goversioninfo.Ver
 		vIntParts = append(vIntParts, v)
 	}
 	version := strings.Join(vParts, ".")
-	copyright := fmt.Sprintf("%d Fleet Device Management Inc.", time.Now().Year())
 
 	// Taken from https://github.com/josephspurrier/goversioninfo/blob/master/testdata/resource/versioninfo.json
 	langID, err := strconv.ParseUint("0409", 16, 16)
@@ -361,37 +361,46 @@ func createVersionInfo(vParts []string, manifestPath string) (*goversioninfo.Ver
 		return nil, errors.New("invalid charsetID")
 	}
 
+	majorInt, minorInt, patchInt, buildInt := 0, 0, 0, 0
+	if len(vIntParts) > 0 {
+		majorInt = vIntParts[0]
+	}
+	if len(vIntParts) > 1 {
+		minorInt = vIntParts[1]
+	}
+	if len(vIntParts) > 2 {
+		patchInt = vIntParts[2]
+	}
+	if len(vIntParts) > 3 {
+		buildInt = vIntParts[3]
+	}
+
 	result := goversioninfo.VersionInfo{
 		FixedFileInfo: goversioninfo.FixedFileInfo{
 			FileVersion: goversioninfo.FileVersion{
-				Major: vIntParts[0],
-				Minor: vIntParts[1],
-				Patch: vIntParts[2],
-				Build: vIntParts[3],
+				Major: majorInt,
+				Minor: minorInt,
+				Patch: patchInt,
+				Build: buildInt,
 			},
 			ProductVersion: goversioninfo.FileVersion{
-				Major: vIntParts[0],
-				Minor: vIntParts[1],
-				Patch: vIntParts[2],
-				Build: vIntParts[3],
+				Major: majorInt,
+				Minor: minorInt,
+				Patch: patchInt,
+				Build: buildInt,
 			},
-			FileFlagsMask: "3f",
-			FileFlags:     "00",
-			FileOS:        "040004",
-			FileType:      "01",
-			FileSubType:   "00",
 		},
 		StringFileInfo: goversioninfo.StringFileInfo{
-			Comments:         "Fleet osquery",
-			CompanyName:      "Fleet Device Management (fleetdm.com)",
-			FileDescription:  "Fleet osquery installer",
+			Comments:         opt.ProductName,
+			CompanyName:      "Fleet Device Management",
+			FileDescription:  opt.ProductName + " installer",
 			FileVersion:      version,
 			InternalName:     "",
-			LegalCopyright:   copyright,
+			LegalCopyright:   "Fleet Device Management",
 			LegalTrademarks:  "",
 			OriginalFilename: "",
 			PrivateBuild:     "",
-			ProductName:      "Fleet osquery",
+			ProductName:      opt.ProductName,
 			ProductVersion:   version,
 			SpecialBuild:     "",
 		},
@@ -445,13 +454,13 @@ func writeResourceSyso(opt Options, orbitPath string) error {
 		return fmt.Errorf("invalid version %s: %w", opt.Version, err)
 	}
 
-	manifestPath, err := writeManifestXML(vParts, orbitPath, opt.Architecture)
+	manifestPath, err := writeManifestXML(opt, vParts, orbitPath, opt.Architecture)
 	if err != nil {
 		return fmt.Errorf("creating manifest.xml: %w", err)
 	}
 	defer os.RemoveAll(manifestPath)
 
-	vi, err := createVersionInfo(vParts, manifestPath)
+	vi, err := createVersionInfo(opt, vParts, manifestPath)
 	if err != nil {
 		return fmt.Errorf("parsing versioninfo: %w", err)
 	}

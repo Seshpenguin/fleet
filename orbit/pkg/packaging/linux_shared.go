@@ -225,7 +225,7 @@ func buildNFPM(opt Options, pkger nfpm.Packager) (string, error) {
 	info := &nfpm.Info{
 		Name:        "fleet-osquery",
 		Version:     opt.Version,
-		Description: "Fleet osquery -- runtime and autoupdater",
+		Description: opt.ProductName + " -- runtime and autoupdater",
 		Arch:        opt.Architecture,
 		Maintainer:  "Fleet Device Management",
 		Vendor:      "Fleet Device Management",

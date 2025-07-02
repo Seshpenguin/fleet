@@ -255,6 +255,12 @@ func packageCommand() *cli.Command {
 				Value:       "",
 				Destination: &opt.CustomOutfile,
 			},
+			&cli.StringFlag{
+				Name:        "product-name",
+				Usage:       "Product name shown in installer dialogs",
+				Value:       "Fleet osquery",
+				Destination: &opt.ProductName,
+			},
 		},
 		Action: func(c *cli.Context) error {
 			if opt.FleetURL != "" || opt.EnrollSecret != "" {

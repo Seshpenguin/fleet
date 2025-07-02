@@ -133,6 +133,9 @@ type Options struct {
 	NativePlatform string
 	// CustomOutfile is the custom output file name for the package.
 	CustomOutfile string
+	// ProductName is the name of the product shown in installer dialogs.
+	// Defaults to "Fleet osquery" if not specified.
+	ProductName string
 }
 
 const (

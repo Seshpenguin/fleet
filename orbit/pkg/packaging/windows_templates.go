@@ -9,7 +9,7 @@ var ManifestXMLTemplate = template.Must(template.New("").Option("missingkey=erro
 <assembly xmlns="urn:schemas-microsoft-com:asm.v1" manifestVersion="1.0">
   <assemblyIdentity
     type="win32"
-    name="Fleet osquery"
+    name="{{.ProductName}}"
     version="{{.Version}}"
     processorArchitecture="{{.Arch}}"
   />
@@ -31,15 +31,15 @@ var windowsWixTemplate = template.Must(template.New("").Option("missingkey=error
 <Wix xmlns="http://schemas.microsoft.com/wix/2006/wi" xmlns:util="http://schemas.microsoft.com/wix/UtilExtension">
   <Product
     Id="*"
-    Name="Fleet osquery"
+    Name="{{.ProductName}}"
     Language="1033"
     Version="{{.Version}}"
     Manufacturer="Fleet Device Management (fleetdm.com)"
     UpgradeCode="B681CB20-107E-428A-9B14-2D3C1AFED244" >
 
     <Package
-      Keywords='Fleet osquery'
-      Description="Fleet osquery"
+      Keywords='{{.ProductName}}'
+      Description="{{.ProductName}}"
       InstallerVersion="500"
       Compressed="yes"
       InstallScope="perMachine"
@@ -103,7 +103,7 @@ var windowsWixTemplate = template.Must(template.New("").Option("missingkey=error
                   ##############################################################################################
                   -->
                 <ServiceInstall
-                  Name="Fleet osquery"
+                  Name="{{.ProductName}}"
                   Account="LocalSystem"
                   ErrorControl="ignore"
                   Start="auto"
@@ -121,7 +121,7 @@ var windowsWixTemplate = template.Must(template.New("").Option("missingkey=error
                 </ServiceInstall>
                 <ServiceControl
                   Id="StartOrbitService"
-                  Name="Fleet osquery"
+                  Name="{{.ProductName}}"
                   Start="install"
                   Stop="both"
                   Remove="uninstall"
@@ -201,7 +201,7 @@ var windowsWixTemplate = template.Must(template.New("").Option("missingkey=error
       <Custom Action="CA_RemoveRebootPending" Before='InstallFiles'>NOT Installed</Custom> <!-- It removes reboot pending Orbit files -->
     </InstallExecuteSequence>
 
-    <Feature Id="Orbit" Title="Fleet osquery" Level="1" Display="hidden">
+    <Feature Id="Orbit" Title="{{.ProductName}}" Level="1" Display="hidden">
       <ComponentGroupRef Id="OrbitFiles" />
       <ComponentRef Id="C_ORBITBIN" />
       <ComponentRef Id="C_ORBITROOT" />
@@ -533,7 +533,7 @@ function Stop-Osquery {
 function Stop-Orbit {
 
   # Stop Service
-  Stop-Service -Name "Fleet osquery" -ErrorAction "Continue"
+  Stop-Service -Name "{{.ProductName}}" -ErrorAction "Continue"
   Start-Sleep -Milliseconds 1000
 
   # Ensure that no process left running
@@ -567,7 +567,7 @@ function Force-Remove-Orbit {
     Stop-Orbit
 
     #Remove Service
-    $service = Get-WmiObject -Class Win32_Service -Filter "Name='Fleet osquery'"
+    $service = Get-WmiObject -Class Win32_Service -Filter "Name='{{.ProductName}}'"
     if ($service) {
       $service.delete() | Out-Null
     }
@@ -580,7 +580,7 @@ function Force-Remove-Orbit {
     Get-ChildItem "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall" -Recurse  -ErrorAction "SilentlyContinue" |  Where-Object {($_.ValueCount -gt 0)} | ForEach-Object {
 
       # Filter for osquery entries
-      $properties = Get-ItemProperty -LiteralPath $_.PSPath  -ErrorAction "SilentlyContinue" |  Where-Object {($_.DisplayName -eq "Fleet osquery")}
+      $properties = Get-ItemProperty -LiteralPath $_.PSPath  -ErrorAction "SilentlyContinue" |  Where-Object {($_.DisplayName -eq "{{.ProductName}}")}
       if ($properties) {
 
         #Remove Registry Entries
@@ -662,7 +662,7 @@ function Graceful-Product-Uninstall($productName) {
       return $false
     }
 
-    if ($productName -eq "Fleet osquery") {
+    if ($productName -eq "{{.ProductName}}") {
       Stop-Orbit
     } elseif ($productName -eq "osquery") {
       Stop-Osquery

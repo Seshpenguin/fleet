@@ -24,11 +24,11 @@ var macosPackageInfoTemplate = template.Must(template.New("").Option("missingkey
 var macosDistributionTemplate = template.Must(template.New("").Option("missingkey=error").Parse(
 	`<?xml version="1.0" encoding="utf-8"?>
 <installer-gui-script minSpecVersion="2">
-	<title>Fleet osquery</title>
+	<title>{{.ProductName}}</title>
 	<choices-outline>
 	    <line choice="choiceBase"/>
     </choices-outline>
-    <choice id="choiceBase" title="Fleet osquery" enabled="false" selected="true" description="Standard installation for Fleet osquery.">
+    <choice id="choiceBase" title="{{.ProductName}}" enabled="false" selected="true" description="Standard installation for {{.ProductName}}.">
         <pkg-ref id="{{.Identifier}}.base.pkg"/>
     </choice>
     {{/* base.pkg specified here is the foldername that contains the package contents */}}
