@@ -361,34 +361,25 @@ func createVersionInfo(opt Options, vParts []string, manifestPath string) (*gove
 		return nil, errors.New("invalid charsetID")
 	}
 
-	majorInt, minorInt, patchInt, buildInt := 0, 0, 0, 0
-	if len(vIntParts) > 0 {
-		majorInt = vIntParts[0]
-	}
-	if len(vIntParts) > 1 {
-		minorInt = vIntParts[1]
-	}
-	if len(vIntParts) > 2 {
-		patchInt = vIntParts[2]
-	}
-	if len(vIntParts) > 3 {
-		buildInt = vIntParts[3]
-	}
-
 	result := goversioninfo.VersionInfo{
 		FixedFileInfo: goversioninfo.FixedFileInfo{
 			FileVersion: goversioninfo.FileVersion{
-				Major: majorInt,
-				Minor: minorInt,
-				Patch: patchInt,
-				Build: buildInt,
+				Major: vIntParts[0],
+				Minor: vIntParts[1],
+				Patch: vIntParts[2],
+				Build: vIntParts[3],
 			},
 			ProductVersion: goversioninfo.FileVersion{
-				Major: majorInt,
-				Minor: minorInt,
-				Patch: patchInt,
-				Build: buildInt,
+				Major: vIntParts[0],
+				Minor: vIntParts[1],
+				Patch: vIntParts[2],
+				Build: vIntParts[3],
 			},
+			FileFlagsMask: "3f",
+			FileFlags:     "00",
+			FileOS:        "040004",
+			FileType:      "01",
+			FileSubType:   "00",
 		},
 		StringFileInfo: goversioninfo.StringFileInfo{
 			Comments:         opt.ProductName,
