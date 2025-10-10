@@ -115,6 +115,11 @@ func packageCommand() *cli.Command {
 				Destination: &opt.DesktopChannel,
 			},
 			&cli.StringFlag{
+				Name:        "desktop-local-path",
+				Usage:       "Path to a prebuilt Fleet Desktop macOS archive to embed instead of downloading from the update server",
+				Destination: &opt.DesktopAppLocalPath,
+			},
+			&cli.StringFlag{
 				Name:        "orbit-channel",
 				Usage:       "Update channel of Orbit to use",
 				Value:       "stable",
@@ -298,6 +303,19 @@ func packageCommand() *cli.Command {
 			if opt.UpdateTLSClientKey != "" {
 				if _, err := tls.LoadX509KeyPair(opt.UpdateTLSClientCertificate, opt.UpdateTLSClientKey); err != nil {
 					return fmt.Errorf("error loading update client certificate and key: %w", err)
+				}
+			}
+
+			if opt.DesktopAppLocalPath != "" {
+				if c.String("type") != "pkg" {
+					return errors.New("--desktop-local-path is only supported when building pkg installers")
+				}
+				opt.Desktop = true
+				if !strings.HasSuffix(opt.DesktopAppLocalPath, ".tar.gz") {
+					return errors.New("--desktop-local-path must point to a .tar.gz archive produced by 'make desktop-app-tar-gz'")
+				}
+				if _, err := os.Stat(opt.DesktopAppLocalPath); err != nil {
+					return fmt.Errorf("reading --desktop-local-path: %w", err)
 				}
 			}
 

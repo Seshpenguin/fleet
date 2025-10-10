@@ -40,7 +40,7 @@ func exitErrHandler(c *cli.Context, err error) {
 func createApp(reader io.Reader, stdout io.Writer, stderr io.Writer, exitErrHandler cli.ExitErrHandlerFunc) *cli.App {
 	app := cli.NewApp()
 	app.Name = "desktop"
-	app.Usage = "Tool to generate the Fleet Desktop application"
+	app.Usage = "Tool to generate the Mycroft Desktop application"
 	app.ExitErrHandler = exitErrHandler
 	cli.VersionPrinter = func(c *cli.Context) {
 		version.PrintFull()
@@ -51,7 +51,7 @@ func createApp(reader io.Reader, stdout io.Writer, stderr io.Writer, exitErrHand
 	app.Flags = []cli.Flag{
 		&cli.StringFlag{
 			Name:    "version",
-			Usage:   "Version of the Fleet Desktop application",
+			Usage:   "Version of the Mycroft Desktop application",
 			EnvVars: []string{"FLEET_DESKTOP_VERSION"},
 		},
 		&cli.BoolFlag{
@@ -70,8 +70,8 @@ func createApp(reader io.Reader, stdout io.Writer, stderr io.Writer, exitErrHand
 func macos() *cli.Command {
 	return &cli.Command{
 		Name:        "macos",
-		Usage:       "Creates the Fleet Desktop Application for macOS",
-		Description: "Builds and signs the Fleet Desktop .app bundle for macOS",
+		Usage:       "Creates the Mycroft Desktop application for macOS",
+		Description: "Builds and signs the Mycroft Desktop .app bundle for macOS",
 		Flags: []cli.Flag{
 			&cli.StringFlag{
 				Name:    "authority",
@@ -95,8 +95,8 @@ func macos() *cli.Command {
 
 func createMacOSApp(version, authority string, notarize bool) error {
 	const (
-		appDir           = "Fleet Desktop.app"
-		bundleIdentifier = "com.fleetdm.desktop"
+		appDir           = "Mycroft Desktop.app"
+		bundleIdentifier = "io.mycroft.desktop"
 		// infoPList is the Info.plist file to use for the macOS .app bundle.
 		//
 		// 	- NSHighResolutionCapable=true: avoid having a blurry icon and text.
@@ -112,7 +112,7 @@ func createMacOSApp(version, authority string, notarize bool) error {
 	<key>CFBundleInfoDictionaryVersion</key>
 	<string>6.0</string>
 	<key>CFBundleName</key>
-	<string>fleet-desktop</string>
+	<string>Mycroft Desktop</string>
 	<key>CFBundlePackageType</key>
 	<string>APPL</string>
 	<key>CFBundleShortVersionString</key>
@@ -129,7 +129,7 @@ func createMacOSApp(version, authority string, notarize bool) error {
 	)
 
 	if runtime.GOOS != "darwin" {
-		return errors.New(`the "Fleet Desktop" macOS app can only be created from macOS`)
+		return errors.New(`the "Mycroft Desktop" macOS app can only be created from macOS`)
 	}
 
 	defer os.RemoveAll(appDir)
@@ -194,7 +194,7 @@ func createMacOSApp(version, authority string, notarize bool) error {
 	if authority != "" {
 		codeSign := exec.Command("codesign", "-s", authority, "-i", bundleIdentifier, "-f", "-v", "--timestamp", "--options", "runtime", appDir)
 
-		zlog.Info().Str("command", codeSign.String()).Msg("Sign Fleet Desktop.app")
+		zlog.Info().Str("command", codeSign.String()).Msg("Sign Mycroft Desktop.app")
 
 		codeSign.Stderr = os.Stderr
 		codeSign.Stdout = os.Stdout

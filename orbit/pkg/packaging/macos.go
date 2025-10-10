@@ -1,15 +1,20 @@
 package packaging
 
 import (
+	"archive/tar"
 	"bytes"
+	"compress/gzip"
 	"crypto/tls"
 	"errors"
 	"fmt"
+	"io"
+	"io/fs"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"regexp"
 	"runtime"
+	"strings"
 
 	"github.com/Masterminds/semver"
 	"github.com/fleetdm/fleet/v4/orbit/pkg/constant"
@@ -65,9 +70,11 @@ func BuildPkg(opt Options) (string, error) {
 	}
 
 	if opt.Desktop {
-		updateOpt.Targets[constant.DesktopTUFTargetName] = update.DesktopMacOSTarget
-		// Override default channel with the provided value.
-		updateOpt.Targets.SetTargetChannel(constant.DesktopTUFTargetName, opt.DesktopChannel)
+		if opt.DesktopAppLocalPath == "" {
+			updateOpt.Targets[constant.DesktopTUFTargetName] = update.DesktopMacOSTarget
+			// Override default channel with the provided value.
+			updateOpt.Targets.SetTargetChannel(constant.DesktopTUFTargetName, opt.DesktopChannel)
+		}
 	}
 
 	// Override default channels with the provided values.
@@ -82,6 +89,13 @@ func BuildPkg(opt Options) (string, error) {
 	if err != nil {
 		return "", fmt.Errorf("initialize updates: %w", err)
 	}
+
+	if opt.Desktop && opt.DesktopAppLocalPath != "" {
+		if err := installLocalDesktop(opt, orbitRoot, updatesData); err != nil {
+			return "", err
+		}
+	}
+
 	log.Debug().Stringer("data", updatesData).Msg("updates initialized")
 	if opt.Version == "" {
 		// We set the package version to orbit's latest version.
@@ -329,6 +343,91 @@ func writeUpdateClientCertificate(opt Options, orbitRoot string) error {
 		return fmt.Errorf("write update key file: %w", err)
 	}
 	return nil
+}
+
+func installLocalDesktop(opt Options, orbitRoot string, updatesData *UpdatesData) error {
+	desktopInfo := update.DesktopMacOSTarget
+	path, execPath, dirPath := update.LocalTargetPaths(orbitRoot, constant.DesktopTUFTargetName, desktopInfo)
+
+	if err := secure.MkdirAll(filepath.Dir(path), constant.DefaultDirMode); err != nil {
+		return fmt.Errorf("create desktop target directory: %w", err)
+	}
+
+	if err := file.Copy(opt.DesktopAppLocalPath, path, 0o755); err != nil {
+		return fmt.Errorf("copy local Fleet Desktop bundle: %w", err)
+	}
+
+	if strings.HasSuffix(path, ".tar.gz") {
+		if err := os.RemoveAll(dirPath); err != nil && !errors.Is(err, fs.ErrNotExist) {
+			return fmt.Errorf("remove existing Fleet Desktop bundle: %w", err)
+		}
+		if err := extractTarGz(path); err != nil {
+			return fmt.Errorf("extract local Fleet Desktop bundle: %w", err)
+		}
+	}
+
+	updatesData.DesktopPath = execPath
+	updatesData.DesktopVersion = "local"
+
+	return nil
+}
+
+func extractTarGz(path string) error {
+	tarGzFile, err := secure.OpenFile(path, os.O_RDONLY, 0o755)
+	if err != nil {
+		return fmt.Errorf("open %q: %w", path, err)
+	}
+	defer tarGzFile.Close()
+
+	gzipReader, err := gzip.NewReader(tarGzFile)
+	if err != nil {
+		return fmt.Errorf("gzip reader %q: %w", path, err)
+	}
+	defer gzipReader.Close()
+
+	tarReader := tar.NewReader(gzipReader)
+	for {
+		header, err := tarReader.Next()
+		switch {
+		case err == nil:
+			// OK
+		case errors.Is(err, io.EOF):
+			return nil
+		default:
+			return fmt.Errorf("tar reader %q: %w", path, err)
+		}
+
+		if strings.Contains(header.Name, "..") {
+			return fmt.Errorf("invalid path in tar.gz: %q", header.Name)
+		}
+
+		targetPath := filepath.Join(filepath.Dir(path), header.Name)
+
+		switch header.Typeflag {
+		case tar.TypeDir:
+			if err := secure.MkdirAll(targetPath, constant.DefaultDirMode); err != nil {
+				return fmt.Errorf("mkdir %q: %w", header.Name, err)
+			}
+		case tar.TypeReg:
+			err := func() error {
+				outFile, err := os.OpenFile(targetPath, os.O_CREATE|os.O_WRONLY, header.FileInfo().Mode())
+				if err != nil {
+					return fmt.Errorf("failed to create %q: %w", header.Name, err)
+				}
+				defer outFile.Close()
+
+				if _, err := io.Copy(outFile, tarReader); err != nil {
+					return fmt.Errorf("failed to copy %q: %w", header.Name, err)
+				}
+				return nil
+			}()
+			if err != nil {
+				return err
+			}
+		default:
+			return fmt.Errorf("unknown flag type %q: %d", header.Name, header.Typeflag)
+		}
+	}
 }
 
 // xarBom creates the actual .pkg format. It's a xar archive with a BOM (Bill of

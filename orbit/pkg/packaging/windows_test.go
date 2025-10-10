@@ -1,10 +1,8 @@
 package packaging
 
 import (
-	"fmt"
 	"path/filepath"
 	"testing"
-	"time"
 
 	"github.com/fleetdm/fleet/v4/pkg/fleethttp"
 	"github.com/stretchr/testify/assert"
@@ -16,14 +14,14 @@ func TestCreateVersionInfo(t *testing.T) {
 
 	t.Run("invalid version parts", func(t *testing.T) {
 		parts := []string{"1", "a", "3", "c"}
-		result, err := createVersionInfo(parts, manifestPath)
+		result, err := createVersionInfo(Options{ProductName: "Fleet osquery"}, parts, manifestPath)
 		require.ErrorContains(t, err, "error parsing version part")
 		require.Nil(t, result)
 	})
 
 	t.Run("creates a VersionInfo struct", func(t *testing.T) {
 		parts := []string{"1", "2", "3", "0"}
-		result, err := createVersionInfo(parts, manifestPath)
+		result, err := createVersionInfo(Options{ProductName: "Fleet osquery"}, parts, manifestPath)
 		require.NoError(t, err)
 
 		require.NotNil(t, result)
@@ -45,10 +43,10 @@ func TestCreateVersionInfo(t *testing.T) {
 		require.Equal(t, result.FixedFileInfo.FileSubType, "00")
 
 		require.Equal(t, result.StringFileInfo.Comments, "Fleet osquery")
-		require.Equal(t, result.StringFileInfo.CompanyName, "Fleet Device Management (fleetdm.com)")
+		require.Equal(t, result.StringFileInfo.CompanyName, "Fleet Device Management")
 		require.Equal(t, result.StringFileInfo.FileDescription, "Fleet osquery installer")
 		require.Equal(t, result.StringFileInfo.FileVersion, "1.2.3.0")
-		require.Equal(t, result.StringFileInfo.LegalCopyright, fmt.Sprintf("%d Fleet Device Management Inc.", time.Now().Year()))
+		require.Equal(t, result.StringFileInfo.LegalCopyright, "Fleet Device Management")
 		require.Equal(t, result.StringFileInfo.ProductName, "Fleet osquery")
 		require.Equal(t, result.StringFileInfo.ProductVersion, "1.2.3.0")
 		require.Equal(t, result.ManifestPath, manifestPath)
