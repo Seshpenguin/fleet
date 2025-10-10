@@ -359,10 +359,29 @@ func installLocalDesktop(opt Options, orbitRoot string, updatesData *UpdatesData
 
 	if strings.HasSuffix(path, ".tar.gz") {
 		if err := os.RemoveAll(dirPath); err != nil && !errors.Is(err, fs.ErrNotExist) {
-			return fmt.Errorf("remove existing Fleet Desktop bundle: %w", err)
+			return fmt.Errorf("remove existing desktop bundle: %w", err)
 		}
 		if err := extractTarGz(path); err != nil {
-			return fmt.Errorf("extract local Fleet Desktop bundle: %w", err)
+			return fmt.Errorf("extract local desktop bundle: %w", err)
+		}
+
+		legacyDir := filepath.Join(filepath.Dir(path), "Fleet Desktop.app")
+		desiredDir := filepath.Join(filepath.Dir(path), desktopInfo.ExtractedExecSubPath[0])
+		if _, err := os.Stat(desiredDir); err != nil {
+			if !errors.Is(err, fs.ErrNotExist) {
+				return fmt.Errorf("inspect extracted desktop bundle: %w", err)
+			}
+			if _, legacyErr := os.Stat(legacyDir); legacyErr == nil {
+				if err := os.Rename(legacyDir, desiredDir); err != nil {
+					return fmt.Errorf("rename legacy Fleet Desktop bundle: %w", err)
+				}
+			} else if legacyErr != nil && !errors.Is(legacyErr, fs.ErrNotExist) {
+				return fmt.Errorf("inspect legacy Fleet Desktop bundle: %w", legacyErr)
+			}
+		}
+
+		if err := ensureLegacyDesktopSymlink(desiredDir, legacyDir); err != nil {
+			return err
 		}
 	}
 
@@ -428,6 +447,45 @@ func extractTarGz(path string) error {
 			return fmt.Errorf("unknown flag type %q: %d", header.Name, header.Typeflag)
 		}
 	}
+}
+
+func ensureLegacyDesktopSymlink(desiredDir, legacyDir string) error {
+	if desiredDir == "" || legacyDir == "" {
+		return nil
+	}
+
+	relativeTarget := filepath.Base(desiredDir)
+	if relativeTarget == "" {
+		return nil
+	}
+
+	info, err := os.Lstat(legacyDir)
+	switch {
+	case err == nil:
+		if info.Mode()&os.ModeSymlink != 0 {
+			target, targetErr := os.Readlink(legacyDir)
+			if targetErr != nil {
+				return fmt.Errorf("read legacy desktop symlink: %w", targetErr)
+			}
+			if target == relativeTarget {
+				return nil
+			}
+			if removeErr := os.Remove(legacyDir); removeErr != nil {
+				return fmt.Errorf("remove stale legacy desktop symlink: %w", removeErr)
+			}
+		} else {
+			return nil
+		}
+	case errors.Is(err, fs.ErrNotExist):
+		// create symlink below
+	default:
+		return fmt.Errorf("inspect legacy desktop entry: %w", err)
+	}
+
+	if err := os.Symlink(relativeTarget, legacyDir); err != nil && !errors.Is(err, fs.ErrExist) {
+		return fmt.Errorf("create legacy desktop symlink: %w", err)
+	}
+	return nil
 }
 
 // xarBom creates the actual .pkg format. It's a xar archive with a BOM (Bill of
