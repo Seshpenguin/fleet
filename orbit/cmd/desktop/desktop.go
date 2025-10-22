@@ -164,7 +164,7 @@ func main() {
 		systray.SetTemplateIcon(iconDark, iconDark)
 
 		// Add a disabled menu item with the current version
-		versionItem := systray.AddMenuItem(fmt.Sprintf("Mycroft Desktop v%s", version), "")
+		versionItem := systray.AddMenuItem(fmt.Sprintf("Mycroft Desktop"), "")
 		versionItem.Disable()
 		systray.AddSeparator()
 

@@ -95,7 +95,7 @@ func macos() *cli.Command {
 
 func createMacOSApp(version, authority string, notarize bool) error {
 	const (
-		appDir           = "Mycroft Desktop.app"
+		appDir           = "Fleet Desktop.app"
 		bundleIdentifier = "io.mycroft.desktop"
 		// infoPList is the Info.plist file to use for the macOS .app bundle.
 		//
