@@ -175,11 +175,13 @@ func writeManifestXML(vParts []string, orbitPath, arch string) (string, error) {
 	filePath := filepath.Join(orbitPath, "manifest.xml")
 
 	tmplOpts := struct {
-		Version string
-		Arch    string
+		Version     string
+		Arch        string
+		ProductName string
 	}{
-		Version: strings.Join(vParts, "."),
-		Arch:    arch,
+		Version:     strings.Join(vParts, "."),
+		Arch:        arch,
+		ProductName: constant.SystemServiceName,
 	}
 
 	var contents bytes.Buffer
