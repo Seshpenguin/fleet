@@ -76,7 +76,7 @@ func macos() *cli.Command {
 			&cli.StringFlag{
 				Name:    "authority",
 				Usage:   "Authority to use on the codesign invocation (if not set, app is not signed)",
-				EnvVars: []string{"FLEET_DESKTOP_APPLE_AUTHORITY"},
+				EnvVars: []string{"FLEET_DESKTOP_APPLE_AUTHORITY", "CODESIGN_IDENTITY"},
 			},
 			&cli.BoolFlag{
 				Name:    "notarize",
@@ -178,6 +178,23 @@ func createMacOSApp(version, authority string, notarize bool) error {
 	zlog.Info().Str("command", buildExec.String()).Msg("Build fleet-desktop executable arm64")
 	if err := buildExec.Run(); err != nil {
 		return fmt.Errorf("compile for arm64: %w", err)
+	}
+
+	// Sign individual binaries before creating universal binary
+	if authority != "" {
+		entitlementsPath := filepath.Join("orbit", "cmd", "desktop", "entitlements.plist")
+		
+		// Sign amd64 binary
+		zlog.Info().Str("binary", amdBinaryPath).Msg("Sign fleet-desktop amd64 binary")
+		if err := signBinary(amdBinaryPath, authority, bundleIdentifier, entitlementsPath); err != nil {
+			return fmt.Errorf("sign amd64 binary: %w", err)
+		}
+
+		// Sign arm64 binary
+		zlog.Info().Str("binary", armBinaryPath).Msg("Sign fleet-desktop arm64 binary")
+		if err := signBinary(armBinaryPath, authority, bundleIdentifier, entitlementsPath); err != nil {
+			return fmt.Errorf("sign arm64 binary: %w", err)
+		}
 	}
 
 	// Make the fat exe and remove the separate binaries
@@ -288,6 +305,30 @@ func compressDir(outPath, dirPath string) error {
 	}
 	if err := out.Close(); err != nil {
 		return fmt.Errorf("close file: %w", err)
+	}
+
+	return nil
+}
+
+// signBinary signs a macOS binary with the specified identity and entitlements
+func signBinary(binaryPath, authority, bundleIdentifier, entitlementsPath string) error {
+	codeSign := exec.Command("codesign",
+		"-s", authority,
+		"-i", bundleIdentifier,
+		"-f",
+		"-v",
+		"--timestamp",
+		"--options", "runtime",
+		"--entitlements", entitlementsPath,
+		binaryPath,
+	)
+
+	zlog.Info().Str("command", codeSign.String()).Msg("Sign binary")
+
+	codeSign.Stderr = os.Stderr
+	codeSign.Stdout = os.Stdout
+	if err := codeSign.Run(); err != nil {
+		return fmt.Errorf("codesign failed: %w", err)
 	}
 
 	return nil
